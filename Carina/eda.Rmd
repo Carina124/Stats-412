@@ -1,0 +1,122 @@
+---
+title: "EDA"
+author: "Carina Kalaydjian"
+date: "2023-03-10"
+output: pdf_document
+---
+
+```{r}
+library(readr)
+data <- read_csv("data_table1-3.csv")
+View(data)
+```
+
+is log transform needed ???
+```{r}
+hist(data$fruit_paid, main = "fruit")
+
+hist(data$vege_paid, main = "veg")
+
+#####################
+# now against their log transformed
+hist(data$ln_fruit_paid, main = "log fruit")
+
+hist(data$ln_vege_paid, main = "log veg")
+```
+log transform seems to be helpful for fruit and veg 
+
+################################
+my own data dictionary 
+
+household_code = Numeric?, unique id numbers 
+fruit_paid = Numeric
+vege_paid = Numeric
+ln_fruit_paid = Numeric, log of fruits
+ln_vege_paid = Numeric, log of veggies
+super5_cat = Categorical
+con5_10 = Numeric
+regional_10000 = Numeric
+dest5_10 = Numeric
+mix5_10 = Numeric
+design5_10 = Numeric
+auto_bg100 = Numeric
+poverty_tr100 = Numeric
+edu = Categorical 
+income = Categorical
+race = Categorical           
+hh_size = Categorical
+age = Categorical
+marital_status = Categorical
+children = Categorical
+employed_new = Categorical
+urban = categorical
+msa = ? OUT
+zip =  transform to be categorical of west, east, middle, south : zippcodes of households 
+```{r}
+library(dplyr)
+# "household_code" not included 
+numerical_columns = c("fruit_paid", "vege_paid", "ln_fruit_paid", "ln_vege_paid", "con5_10", "regional_10000", "dest5_10", "mix5_10", "design5_10", "auto_bg100","poverty_tr100")
+
+categorical_columns = c("super5_cat", "edu","income", "race","hh_size","age","marital_status", "children", "employed_new", "urban", "zip")
+ 
+
+i = 1
+for (i in i:length(categorical_columns)){
+  t = table(data[(categorical_columns[i])])
+  print(t)
+}
+
+
+j = 1
+for (j in j:length(numerical_columns)){
+  name  = numerical_columns[i]
+  hist(data[name], main=paste("Hist", name))
+}
+
+
+```
+our data dosent follow normal even with log transforms 
+
+Things to do
+- explore outlines 
+- relabel categories for categorical variables(except binary), to be 0, 1, 2, 3 
+- explore different transformations other than log (not biggest priority, hopes and dreams)
+- write code to collapse zip codes by west east south north 
+- decode numerical variables a bit more 
+
+- check for indepencene/colinearity after modeling?
+
+Types of models 
+- veggies vs everything else 
+- fruit vs everything else 
+- fruit or veggies vs only demographics , just cause 
+
+
+
+Models to try 
+- basic linear model 
+- m-estimation rohbust in hw 1or 2? good model for data with outliers and when data dosent follow a normal distribution 
+- explore more model options
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
