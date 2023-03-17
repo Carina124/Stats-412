@@ -9,6 +9,8 @@ output: pdf_document
 library(readr)
 data <- read_csv("data_table1-3.csv")
 View(data)
+
+summary(data)
 ```
 
 is log transform needed ???

@@ -1,0 +1,190 @@
+---
+title: "STAT412_FINAL_PROJECT_DRAFT"
+author: "Mariana Gonzalez Castro"
+date: "2023-03-10"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, echo = FALSE)
+```
+
+# CARINA AND MY SUPER AWESOME FINAL PROJECT:
+
+```{r}
+library(dplyr)
+library(MASS)
+```
+
+```{r}
+food_data <- read_csv("foods_dataset.csv")
+data_dictionary <- read_csv("data_dictionary.csv")
+
+```
+
+```{r}
+#Potential Response Variables
+#Categorical
+food_data %>% count(food_data$children)
+food_data %>% count(food_data$marital_status)
+food_data %>% count(food_data$employed_new)
+food_data %>% count(food_data$urban)
+food_data %>% count(food_data$hh_size)
+food_data %>% count(food_data$edu)
+
+food_data %>% count(food_data$super5_cat)
+food_data %>% count(food_data$race)
+food_data %>% count(food_data$income)
+
+food_data %>% count(food_data$dest5_10)
+```
+
+```{r}
+#children, marital_status, employed_new, urban, hh_size, edu, super5_cat, race, income, dest5_10, zip_region
+
+food_data %>% count(food_data$zip_region) #something is up with the zip code due to the observations that have 4 digits instead of 5
+```
+
+```{r}
+#Chi-square Test for Independence
+#null = independent
+#alt = no independent
+
+chisq.test(food_data$children, food_data$marital_status)
+chisq.test(food_data$children, food_data$employed_new)
+chisq.test(food_data$children, food_data$urban) #independent
+chisq.test(food_data$children, food_data$hh_size)
+chisq.test(food_data$children, food_data$edu)
+chisq.test(food_data$children, food_data$race)
+chisq.test(food_data$children, food_data$income)
+chisq.test(food_data$children, food_data$zip_region) #independent
+
+chisq.test(food_data$marital_status, food_data$urban)
+chisq.test(food_data$marital_status, food_data$hh_size)
+chisq.test(food_data$marital_status, food_data$edu)
+chisq.test(food_data$marital_status, food_data$race)
+chisq.test(food_data$marital_status, food_data$income)
+chisq.test(food_data$marital_status, food_data$zip_region)
+
+chisq.test(food_data$urban, food_data$hh_size)
+chisq.test(food_data$urban, food_data$edu)
+chisq.test(food_data$urban, food_data$race)
+chisq.test(food_data$urban, food_data$income)
+chisq.test(food_data$urban, food_data$zip_region)
+
+chisq.test(food_data$hh_size, food_data$edu)
+chisq.test(food_data$hh_size, food_data$race)
+chisq.test(food_data$hh_size, food_data$income)
+chisq.test(food_data$hh_size, food_data$zip_region)
+
+chisq.test(food_data$edu, food_data$race)
+chisq.test(food_data$edu, food_data$income)
+chisq.test(food_data$edu, food_data$zip_region)
+
+chisq.test(food_data$income, food_data$race)
+chisq.test(food_data$income, food_data$zip_region)
+
+chisq.test(food_data$race, food_data$zip_region)
+
+
+```
+
+Based on Chi-square Test for independence, we may experience collinearity in the model due to the categorical variables being dependent. 
+
+
+```{r}
+#df = subset(food_data, select = c('children','marital_status', 'employed_new', 'urban', 'hh_size', 'edu', 'race', 'income'))
+```
+
+
+
+
+```{r}
+#Numerical
+hist(food_data$con5_10)
+hist(food_data$regional_10000)
+hist(food_data$dest5_10)
+hist(food_data$mix5_10)
+hist(food_data$design5_10)
+hist(food_data$auto_bg100)
+hist(food_data$poverty_tr100)
+
+```
+
+
+```{r}
+#Potential Outcome Variables
+hist(food_data$fruit_paid)
+hist(food_data$ln_fruit_paid)
+
+hist(food_data$vege_paid)
+hist(food_data$ln_vege_paid)
+```
+
+
+
+Notes about the variables: 
+
+Don't know wtf is up with variable **age**. It appears to be categorical ranging 1-4.
+
+Plenty of categorical variables to work from, could do modeling based on demographics only (we had discussed modeling with only categorical variables)
+
+The numerical variables are difficult to interpret context-wise and lowkey the article ain't that great with their explanations
+
+I now see why there was a log transformation applied to the fruit and vegetable outcome variables. The original variables are greatly skewed. We could explore a boxcox transformation and compare? 
+
+Types of regression models could work with: M-estimation robust (due to lot of outliers in outcome variables even after log transformation), maybe kernel? tbh not sure yet
+
+our variables to use in our model: children + marital_status + employed_new + urban + hh_size + edu + race + income
+
+maybe: zip_region need to talk to Carina about it
+
+##Fruit
+
+**Basic Linear Model**
+```{r}
+#start with basic linear model 
+attach(food_data)
+fmod0 <- lm(ln_fruit_paid ~ children + marital_status + employed_new + urban + hh_size + edu + race + income)
+summary(fmod0)
+plot(fmod0)
+```
+
+**Notes about the model**
+
+*Residuals vs Fitted Plot* = appears we got constant variance, this is good
+
+*Normal Q-Q Plot* = it's mostly normal, but the original variable has a worse distribution compared to the log transformation, we got at least 3 outliers that we gotta check 
+
+*Residuals vs Leverage* = does not look good, got tunnel pattern...signs of collinearity (just as I  predicted)
+
+*Summary* = all significant predictors but could that be due to collinearity? most significant are marital_status, hh_size, income
+
+**Checking the Outliers for this linear model:**
+
+```{r}
+plot(fmod0, 4, id.n=10)
+
+threshold <- 4/22448
+cooksD <- cooks.distance(fmod0)
+
+outlier <- cooksD[(cooksD > threshold)]
+outlier
+
+library(car)
+outlierTest(fmod0)
+
+```
+
+##Vegetable
+
+**Basic Linear Model**
+```{r}
+#start with basic linear model 
+attach(food_data)
+vmod0 <- lm(ln_vege_paid ~ children + marital_status + employed_new + urban + hh_size + edu + race + income)
+summary(vmod0)
+plot(vmod0) #gonna have similar results to the fruit model but different significant predictors
+```
+
+

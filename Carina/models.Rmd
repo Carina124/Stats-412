@@ -1,0 +1,221 @@
+---
+title: "models"
+author: "Carina Kalaydjian"
+date: "2023-03-15"
+output: pdf_document
+---
+#libraries 
+```{r}
+library(dplyr)
+library(MASS)
+library(readr)
+library(car)
+library(corrplot)
+library(pls)
+```
+
+#data
+```{r}
+food_data <- read_csv("foods_dataset.csv")
+data_dictionary <- read_csv("data_dictionary.csv")
+
+dataMinus <- food_data[-c(1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 24, 25)]
+
+dataNoOutliers <- dataMinus[-c(2612, 2379, 17537, 22448, 21228, 2958, 10083, 20452, 18940, 8489),]
+
+summary(food_data)
+
+table(food_data$zip_region)
+```
+
+#Linear Modles 
+
+with ln fruit and veg as preditors
+```{r}
+mod1 <- lm(ln_fruit_paid ~ children + marital_status + employed_new + urban + hh_size + edu + race + income + zip_region, data = food_data)
+summary(mod1)
+#normal plots 
+plot(mod1)
+#outlierTest(mod1)
+
+#model with out 10 most influential outliers, there was oly a slight imporve ment 
+mod2 <- lm(ln_fruit_paid ~ children + marital_status + employed_new + urban + hh_size + edu + race + income + zip_region, data = dataNoOutliers)
+summary(mod2)
+plot(mod2)
+
+```
+
+
+```{r}
+#boxcx trnsformation 
+
+mod1 <- lm(fruit_paid ~ children + marital_status + employed_new + urban + hh_size + edu + race + income, data = food_data)
+summary(mod1)
+
+b <- boxcox(mod1)
+lambda <- b$x[which.max(b$y)]
+lambda
+
+
+```
+
+
+```{r}
+#partial regression plots to see outliers
+crPlots(mod1)
+crPlots(mod2)
+
+```
+not the best results 
+in terms of the partial regresstion plots, they look horrible 
+everything looks
+
+using ln fruit and veg as predictors, however including vege in fuit model and fruit in veg model (transformed)
+```{r}
+mod1 <- lm(ln_fruit_paid ~ ln_vege_paid + children + marital_status + employed_new + urban + hh_size + edu + race + income, data = food_data)
+summary(mod1)
+plot(mod1)
+
+mod2 <- lm(ln_vege_paid ~ ln_fruit_paid + children + marital_status + employed_new + urban + hh_size + edu + race + income, data = food_data)
+summary(mod2)
+plot(mod2)
+```
+it makes a difference but im not sure how??? i dont understand :(
+since including counter parts, model performs worse so done include 
+
+# partial regression, good for when there are outliers in the model, it can bring down the influence of the outliers 
+
+```{r}
+mod1 <- rlm(ln_fruit_paid ~ children + marital_status + employed_new + urban + hh_size + edu + race + income, data = food_data)
+summary(mod1)
+#plot(mod1)
+
+hweights <- data.frame(resid = mod1$resid, weight = mod1$w)
+#orders the model values 
+hweights2 <- hweights[order(mod1$w), ]
+hweights2[1:100, ]
+
+outlierTest(mod1)
+
+```
+
+```{r}
+mod2 <- rlm(ln_vege_paid ~ children + marital_status + employed_new + urban + hh_size + edu + race + income, data = food_data)
+summary(mod2)
+#plot(mod2)
+
+```
+
+```{r}
+#bad 
+mod1 <- rlm(ln_fruit_paid ~ ln_vege_paid + children + marital_status + employed_new + urban + hh_size + edu + race + income, data = food_data)
+summary(mod1)
+#plot(mod1)
+
+mod2 <- rlm(ln_vege_paid ~ ln_fruit_paid + children + marital_status + employed_new + urban + hh_size + edu + race + income, data = food_data)
+summary(mod2)
+#plot(mod2)
+```
+including the ln fruit and veg in the model brought the RSS down 
+
+nothing is significant?
+
+# idk rlm() is robust regression ?
+
+
+
+
+# try PCR, but PCA is senstivtive to outliers 
+
+
+```{r}
+pcrMod1 <- pcr()
+
+rmse(predict(pcrMod1, ncomp = ), )
+
+```
+
+using mahalanobis distance to see outliers?????? not really working well. 
+
+```{r}
+#removing clumns we chose not to use 
+dataMinus <- food_data[-c(1, 2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 24, 25)]
+
+dataMinus <- na.omit(dataMinus)
+
+robustData <- cov.rob(dataMinus) #, na.rm = TRUE)
+
+md <- mahalanobis(dataMinus, center = robustData$center, cov = robustData$cov)
+
+n <- nrow(dataMinus)
+p <- nco(dataMinus)
+
+plot(qchisq(1:n / (n+1), p), sort(md))
+abline(0,1)
+```
+
+
+
+###################################
+maybe glm since all categorical? haha no bad idea
+
+```{r}
+# children is the only binary??
+logit <- glm(children ~ ln_fruit_paid + ln_vege_paid + marital_status + employed_new + urban + hh_size + edu + race + income, data = food_data, family = 'binomial')
+
+summary(logit)
+```
+###################################
+
+ridge regression from marianna<3
+```{r}
+library(glmnet)
+#food_data1 <- na.omit(food_data)
+
+dataMinus <- food_data[-c(1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 24, 25)]
+
+dataMinus <- na.omit(dataMinus)
+#first define our x and y 
+#y = food_data1$ln_fruit_paid
+#x = data.matrix(food_data1[c(3, 15, 16, 17, 18, 20, 21, 22, 23, 26)])
+
+y = dataMinus$ln_fruit_paid
+x = data.matrix(dataMinus[-c(1)])
+#need to get rid of na values
+
+fmod3 <- glmnet(x,y, alpha=0)
+
+#perform k-fold cross-validation to find optimal lambda value
+cv_mod <- cv.glmnet(x,y, alpha=0)
+
+#find optimal lambda value that minimizes test MSE
+best_lambda <- cv_mod$lambda.min
+best_lambda
+
+#produce plot of test MSE by lambda value
+plot(cv_mod)
+
+#find coefficients of best model 
+best_mod <- glmnet(x, y, alpha=0, lambda=best_lambda) 
+
+coef(best_mod)
+
+
+```
+
+
+correlation plot 
+```{r}
+#dataMinus <- dataMinus[,-11]
+dataMinus <- na.omit(dataMinus)
+
+M<-cor(dataMinus)
+#head(round(M,2))
+
+corrplot(M, type="upper")
+
+mod1 <- lm(ln_fruit_paid ~ children + marital_status + employed_new + urban + edu + race + income + zip_region, data = food_data)
+summary(mod1)
+#normal plots 
+plot(mod1)
+```
